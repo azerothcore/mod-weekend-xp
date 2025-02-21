@@ -292,7 +292,7 @@ public:
     void OnPlayerGiveXP(Player* player, uint32& amount, Unit* /*victim*/, uint8 xpSource) override
     {
         DoubleXpWeekend* mod = DoubleXpWeekend::instance();
-        amount = mod->OnGiveXP(player, amount, xpSource);
+        amount = mod->OnPlayerGiveXP(player, amount, xpSource);
     }
 
 };
