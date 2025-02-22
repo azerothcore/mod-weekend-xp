@@ -280,7 +280,10 @@ public:
 class DoubleXpWeekendPlayerScript : public PlayerScript
 {
 public:
-    DoubleXpWeekendPlayerScript() : PlayerScript("DoubleXpWeekend") { }
+    DoubleXpWeekendPlayerScript() : PlayerScript("DoubleXpWeekend", {
+        PLAYERHOOK_ON_LOGIN,
+        PLAYERHOOK_ON_GIVE_EXP
+    }) { }
 
     void OnPlayerLogin(Player* player) override
     {
