@@ -53,3 +53,9 @@ XPWeekend.QuestOnly = 0
 #
 
 XPWeekend.MaxLevel = 80
+
+# XPWeekend.IsDKStartZoneRequired = 0
+#     If set to 1 (enabled), players must have completed the Death Knight starting zone to receive the bonus experience.
+#     Default: 0 (Disabled)
+
+XPWeekend.IsDKStartZoneRequired = 0
