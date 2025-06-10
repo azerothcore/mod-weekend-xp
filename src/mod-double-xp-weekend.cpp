@@ -45,6 +45,11 @@ public:
             return originalAmount;
         }
 
+        if (ConfigIsDKStartZoneRequired() && player->getClass() == CLASS_DEATH_KNIGHT && !IsDKStartZoneComplete(player))
+        {
+            return originalAmount;
+        }
+
         if (ConfigQuestOnly() && xpSource != PlayerXPSource::XPSOURCE_QUEST && xpSource != PlayerXPSource::XPSOURCE_QUEST_DF)
         {
             return originalAmount;
@@ -147,6 +152,12 @@ private:
     bool ConfigIndividualXPEnabled() const { return sConfigMgr->GetOption<bool>("XPWeekend.IndividualXPEnabled", false); }
     bool ConfigEnabled() const { return sConfigMgr->GetOption<bool>("XPWeekend.Enabled", false); }
     float ConfigMaxAllowedRate() const { return sConfigMgr->GetOption<float>("XPWeekend.MaxAllowedRate", 2.0f); }
+    bool ConfigIsDKStartZoneRequired() const { return sConfigMgr->GetOption<bool>("XPWeekend.IsDKStartZoneRequired", false); }
+
+    bool IsDKStartZoneComplete(Player* player) const
+    {
+        return player->IsQuestRewarded(13188) || player->IsQuestRewarded(13189);
+    }
 
     void PlayerSettingSetRate(Player* player, float rate) const
     {
