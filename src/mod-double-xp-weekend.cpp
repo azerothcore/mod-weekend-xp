@@ -145,7 +145,7 @@ public:
     float ConfigJoyousJourneysXPRate() const { return sConfigMgr->GetOption<float>("XPWeekend.JoyousJourneysXPRate", 1.0f); }
     float ConfigJoyousJourneysRepRate() const { return sConfigMgr->GetOption<float>("XPWeekend.JoyousJourneysRepRate", 1.10f); }
     bool ExcludeInsaneReps() const { return sConfigMgr->GetOption<bool>("XPWeekend.ExcludeInsaneReps", true); }
-    float ConfigMaxAllowedRate() const { return sConfigMgr->GetOption<float>("XPWeekend.MaxAllowedRate", 2.0f) + (IsJoyousJourneysActive() ? ConfigJoyousJourneysXPRate() : 0.0f); }
+    float ConfigMaxAllowedRate() const { return sConfigMgr->GetOption<float>("XPWeekend.MaxAllowedRate", 2.0f); }
 
 private:
 
@@ -314,7 +314,7 @@ public:
         mod->OnPlayerLogin(player, &handler);
 
         if (mod->IsJoyousJourneysActive() && mod->ConfigJoyousJourneysXPRate())
-            handler.PSendSysMessage("|cff00ccffThe Joyous Journeys event is active! You may set your rates up to {} while it is active!|r", mod->ConfigMaxAllowedRate());
+            handler.PSendSysMessage("|cff00ccffThe Joyous Journeys event is active! Experience gains have been increased.|r");
     }
 
     void OnPlayerGiveXP(Player* player, uint32& amount, Unit* /*victim*/, uint8 xpSource) override
