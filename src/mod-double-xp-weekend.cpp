@@ -145,6 +145,7 @@ public:
     float ConfigJoyousJourneysXPRate() const { return sConfigMgr->GetOption<float>("XPWeekend.JoyousJourneysXPRate", 1.0f); }
     float ConfigJoyousJourneysRepRate() const { return sConfigMgr->GetOption<float>("XPWeekend.JoyousJourneysRepRate", 1.10f); }
     bool ExcludeInsaneReps() const { return sConfigMgr->GetOption<bool>("XPWeekend.ExcludeInsaneReps", true); }
+    float ConfigMaxAllowedRate() const { return sConfigMgr->GetOption<float>("XPWeekend.MaxAllowedRate", 2.0f) + (IsJoyousJourneysActive() ? ConfigJoyousJourneysXPRate() : 0.0f); }
 
 private:
 
@@ -156,7 +157,6 @@ private:
     float ConfigxpAmount() const { return sConfigMgr->GetOption<float>("XPWeekend.xpAmount", 2.0f); }
     bool ConfigIndividualXPEnabled() const { return sConfigMgr->GetOption<bool>("XPWeekend.IndividualXPEnabled", false); }
     bool ConfigEnabled() const { return sConfigMgr->GetOption<bool>("XPWeekend.Enabled", false); }
-    float ConfigMaxAllowedRate() const { return sConfigMgr->GetOption<float>("XPWeekend.MaxAllowedRate", 2.0f) + (IsJoyousJourneysActive() ? ConfigJoyousJourneysXPRate() : 0.0f); }
     bool ConfigIsDKStartZoneRequired() const { return sConfigMgr->GetOption<bool>("XPWeekend.IsDKStartZoneRequired", false); }
 
     bool IsDKStartZoneComplete(Player* player) const
@@ -312,6 +312,9 @@ public:
         DoubleXpWeekend* mod = DoubleXpWeekend::instance();
         ChatHandler handler = ChatHandler(player->GetSession());
         mod->OnPlayerLogin(player, &handler);
+
+        if (mod->IsJoyousJourneysActive() && mod->ConfigJoyousJourneysXPRate())
+            handler.PSendSysMessage("|cff00ccffThe Joyous Journeys event is active! You may set your rates up to {} while it is active!|r", mod->ConfigMaxAllowedRate());
     }
 
     void OnPlayerGiveXP(Player* player, uint32& amount, Unit* /*victim*/, uint8 xpSource) override
