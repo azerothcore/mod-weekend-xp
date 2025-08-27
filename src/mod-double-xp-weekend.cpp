@@ -141,6 +141,11 @@ public:
         return true;
     }
 
+    bool IsJoyousJourneysActive() const { return sConfigMgr->GetOption<bool>("XPWeekend.IsJoyousJourneysActive", false); }
+    float ConfigJoyousJourneysXPRate() const { return sConfigMgr->GetOption<float>("XPWeekend.JoyousJourneysXPRate", 1.0f); }
+    float ConfigJoyousJourneysRepRate() const { return sConfigMgr->GetOption<float>("XPWeekend.JoyousJourneysRepRate", 1.10f); }
+    bool ExcludeInsaneReps() const { return sConfigMgr->GetOption<bool>("XPWeekend.ExcludeInsaneReps", true); }
+
 private:
 
     // NOTE keep options together to prevent having more than 1 potential default value
@@ -151,7 +156,7 @@ private:
     float ConfigxpAmount() const { return sConfigMgr->GetOption<float>("XPWeekend.xpAmount", 2.0f); }
     bool ConfigIndividualXPEnabled() const { return sConfigMgr->GetOption<bool>("XPWeekend.IndividualXPEnabled", false); }
     bool ConfigEnabled() const { return sConfigMgr->GetOption<bool>("XPWeekend.Enabled", false); }
-    float ConfigMaxAllowedRate() const { return sConfigMgr->GetOption<float>("XPWeekend.MaxAllowedRate", 2.0f); }
+    float ConfigMaxAllowedRate() const { return sConfigMgr->GetOption<float>("XPWeekend.MaxAllowedRate", 2.0f) + (IsJoyousJourneysActive() ? ConfigJoyousJourneysXPRate() : 0.0f); }
     bool ConfigIsDKStartZoneRequired() const { return sConfigMgr->GetOption<bool>("XPWeekend.IsDKStartZoneRequired", false); }
 
     bool IsDKStartZoneComplete(Player* player) const
@@ -230,6 +235,11 @@ private:
             return 1.0f;
         }
 
+        if (IsJoyousJourneysActive())
+        {
+            rate += ConfigJoyousJourneysXPRate();
+        }
+
         // If individualxp setting is enabled... and a rate was set, overwrite it.
         if (ConfigIndividualXPEnabled())
         {
@@ -293,7 +303,8 @@ class DoubleXpWeekendPlayerScript : public PlayerScript
 public:
     DoubleXpWeekendPlayerScript() : PlayerScript("DoubleXpWeekend", {
         PLAYERHOOK_ON_LOGIN,
-        PLAYERHOOK_ON_GIVE_EXP
+        PLAYERHOOK_ON_GIVE_EXP,
+        PLAYERHOOK_ON_GIVE_REPUTATION
     }) { }
 
     void OnPlayerLogin(Player* player) override
@@ -307,6 +318,31 @@ public:
     {
         DoubleXpWeekend* mod = DoubleXpWeekend::instance();
         amount = mod->OnPlayerGiveXP(player, amount, xpSource);
+    }
+
+    void OnPlayerGiveReputation(Player* /*player*/, int32 factionID, float& amount, ReputationSource /*repSource*/) override
+    {
+        DoubleXpWeekend* mod = DoubleXpWeekend::instance();
+        if (!mod->IsJoyousJourneysActive() || !mod->ConfigJoyousJourneysRepRate())
+            return;
+
+        if (mod->ExcludeInsaneReps())
+        {
+            switch (factionID)
+            {
+                case 349: // Ravenholdt
+                case 87:  // bloodsail bucaneers
+                case 21:  // Booty Bay
+                case 577: // Everlook
+                case 369: // Gadgetzan
+                case 470: // Ratchet
+                case 909: // Darkmoon Faire
+                case 809: // Shen'dralar
+                    return;
+            }
+        }
+
+        amount *= mod->ConfigJoyousJourneysRepRate();
     }
 
 };
