@@ -235,15 +235,15 @@ private:
             return 1.0f;
         }
 
-        if (IsJoyousJourneysActive())
-        {
-            rate += ConfigJoyousJourneysXPRate();
-        }
-
         // If individualxp setting is enabled... and a rate was set, overwrite it.
         if (ConfigIndividualXPEnabled())
         {
             rate = PlayerSettingGetRate(player);
+        }
+
+        if (IsJoyousJourneysActive())
+        {
+            rate += ConfigJoyousJourneysXPRate();
         }
 
         // Prevent returning 0% rate.
