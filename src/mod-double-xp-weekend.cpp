@@ -239,6 +239,10 @@ private:
         if (ConfigIndividualXPEnabled())
         {
             rate = PlayerSettingGetRate(player);
+
+            // If config changed, cap it to max allowed
+            if (rate > ConfigMaxAllowedRate())
+                rate = ConfigMaxAllowedRate();
         }
 
         if (IsJoyousJourneysActive())
