@@ -243,7 +243,10 @@ private:
 
             // If config changed, cap it to max allowed
             if (rate > ConfigMaxAllowedRate())
+            {
                 rate = ConfigMaxAllowedRate();
+                player->UpdatePlayerSetting("mod-double-xp-weekend", SETTING_WEEKEND_XP_RATE, ConfigMaxAllowedRate());
+            }
         }
 
         if (IsJoyousJourneysActive() && !player->GetPlayerSetting("mod-double-xp-weekend", SETTING_WEEKEND_XP_JOYOUS_JOURNEYS).IsEnabled())
