@@ -11,6 +11,7 @@ enum WeekendXP
     SETTING_WEEKEND_XP_RATE = 0,
     SETTING_WEEKEND_XP_DISABLE = 1,
     SETTING_WEEKEND_XP_VERSION = 2,
+    SETTING_WEEKEND_XP_JOYOUS_JOURNEYS = 3,
 
     LANG_CMD_WEEKEND_XP_SET   = 11120,
     LANG_CMD_WEEKEND_XP_ERROR = 11121,
@@ -245,7 +246,7 @@ private:
                 rate = ConfigMaxAllowedRate();
         }
 
-        if (IsJoyousJourneysActive())
+        if (IsJoyousJourneysActive() && !player->GetPlayerSetting("mod-double-xp-weekend", SETTING_WEEKEND_XP_JOYOUS_JOURNEYS).IsEnabled())
         {
             rate += ConfigJoyousJourneysXPRate();
         }
@@ -284,6 +285,7 @@ public:
         {
             { "weekendxp rate", HandleSetXPBonusCommand, SEC_PLAYER, Console::No },
             { "weekendxp config", HandleGetCurrentConfigCommand, SEC_PLAYER, Console::No },
+            { "weekendxp joyousjourneys", HandleJoyousJourneysCommand, SEC_PLAYER, Console::No }
         };
 
         return commandTable;
@@ -299,6 +301,21 @@ public:
     {
         DoubleXpWeekend* mod = DoubleXpWeekend::instance();
         return mod->HandleGetCurrentConfigCommand(handler);
+    }
+
+    static bool HandleJoyousJourneysCommand(ChatHandler* handler, bool enable)
+    {
+        DoubleXpWeekend* mod = DoubleXpWeekend::instance();
+        if (!mod->IsJoyousJourneysActive())
+        {
+            handler->PSendSysMessage("The Joyous Journeys event is not enabled on this server.");
+            handler->SetSentErrorMessage(true);
+            return true;
+        }
+
+        handler->GetPlayer()->UpdatePlayerSetting("mod-double-xp-weekend", SETTING_WEEKEND_XP_JOYOUS_JOURNEYS, !enable);
+        handler->PSendSysMessage("Joyous Journeys experience boost {}.", !enable ? "disabled" : "enabled");
+        return true;
     }
 };
 
@@ -318,7 +335,7 @@ public:
         mod->OnPlayerLogin(player, &handler);
 
         if (mod->IsJoyousJourneysActive() && mod->ConfigJoyousJourneysXPRate())
-            handler.PSendSysMessage("|cff00ccffThe Joyous Journeys event is active! Experience gains have been increased.|r");
+            handler.PSendSysMessage("|cff00ccffThe Joyous Journeys event is active! Experience gains have been increased. Type .weekendxp j off to disable it.|r");
     }
 
     void OnPlayerGiveXP(Player* player, uint32& amount, Unit* /*victim*/, uint8 xpSource) override
