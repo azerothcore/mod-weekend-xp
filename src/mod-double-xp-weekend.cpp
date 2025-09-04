@@ -360,6 +360,7 @@ public:
                 case 349: // Ravenholdt
                 case 87:  // bloodsail bucaneers
                 case 21:  // Booty Bay
+                case 169: // Steemwhedle Cartel
                 case 577: // Everlook
                 case 369: // Gadgetzan
                 case 470: // Ratchet
