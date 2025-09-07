@@ -251,7 +251,8 @@ private:
 
         if (IsJoyousJourneysActive() && !player->GetPlayerSetting("mod-double-xp-weekend", SETTING_WEEKEND_XP_JOYOUS_JOURNEYS).IsEnabled())
         {
-            rate += ConfigJoyousJourneysXPRate();
+            if (!player->GetMap()->IsBattlegroundOrArena())
+                rate += ConfigJoyousJourneysXPRate();
         }
 
         // Prevent returning 0% rate.
