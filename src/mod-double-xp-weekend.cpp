@@ -13,10 +13,6 @@ enum WeekendXP
     SETTING_WEEKEND_XP_VERSION = 2,
     SETTING_WEEKEND_XP_JOYOUS_JOURNEYS = 3,
 
-    LANG_CMD_WEEKEND_XP_SET   = 11120,
-    LANG_CMD_WEEKEND_XP_ERROR = 11121,
-    LANG_CMD_WEEKEND_XP_CONFIG = 11122,
-
     WD_FRIDAY   = 5,
     WD_SATURDAY = 6,
     WD_SUNDAY   = 0,
@@ -99,13 +95,13 @@ public:
 
         if (rate <= 0.0f || rate > maxRate)
         {
-            handler->PSendSysMessage(LANG_CMD_WEEKEND_XP_ERROR, maxRate);
+            handler->PSendModuleSysMessage("mod-weekend-xp", 1, maxRate);
             handler->SetSentErrorMessage(true);
             return true;
         }
 
         PlayerSettingSetRate(player, rate);
-        handler->PSendSysMessage(LANG_CMD_WEEKEND_XP_SET, rate);
+        handler->PSendModuleSysMessage("mod-weekend-xp", 0, rate);
 
         // TODO if the `EnablePlayerSettings` is not set, the setting wont be remembered by the
         // server after the player logs out, meaning the player needs to do this again on next login
@@ -127,7 +123,7 @@ public:
         const bool isEnabled = ConfigEnabled();
         const float maxXpRate = ConfigMaxAllowedRate();
 
-        handler->PSendSysMessage(LANG_CMD_WEEKEND_XP_CONFIG,
+        handler->PSendModuleSysMessage("mod-weekend-xp", 2,
             actualRate,
             isAnnounceEnabled,
             isAlwaysEnabled,
