@@ -2,6 +2,7 @@
 #include "ScriptMgr.h"
 #include "Player.h"
 #include "Chat.h"
+#include "Timer.h"
 #include "WorldState.h"
 #include <cstdio>
 #include <time.h>
@@ -173,17 +174,19 @@ public:
 
     bool HandleJoyousJourneysScheduleCommand(ChatHandler* handler, Optional<std::string> startDate, Optional<std::string> endDate) const
     {
+        // PSendModuleSysMessage drops the message when there is no session, and this
+        // command is available from the console, so parse and send separately.
         if (!startDate)
         {
             if (!HasJoyousJourneysSchedule())
             {
-                handler->PSendSysMessage("No Joyous Journeys schedule is set. The event follows the XPWeekend.IsJoyousJourneysActive config (currently {}).",
-                    sConfigMgr->GetOption<bool>("XPWeekend.IsJoyousJourneysActive", false) ? "enabled" : "disabled");
+                handler->SendSysMessage(handler->PGetParseModuleString("mod-weekend-xp", 3,
+                    sConfigMgr->GetOption<bool>("XPWeekend.IsJoyousJourneysActive", false)));
             }
             else
             {
-                handler->PSendSysMessage("Joyous Journeys is scheduled from {} to {} (inclusive). The event is currently {}.",
-                    FormatDate(JoyousJourneysStart()), JoyousJourneysEndDateString(), IsJoyousJourneysActive() ? "active" : "not active");
+                handler->SendSysMessage(handler->PGetParseModuleString("mod-weekend-xp", 4,
+                    FormatDate(JoyousJourneysStart()), JoyousJourneysEndDateString(), IsJoyousJourneysActive()));
             }
 
             return true;
@@ -193,7 +196,7 @@ public:
         {
             sWorldState->setWorldState(WS_JOYOUS_JOURNEYS_START, 0);
             sWorldState->setWorldState(WS_JOYOUS_JOURNEYS_END, 0);
-            handler->PSendSysMessage("Joyous Journeys schedule cleared. The event now follows the XPWeekend.IsJoyousJourneysActive config.");
+            handler->SendSysMessage(handler->PGetParseModuleString("mod-weekend-xp", 5));
             return true;
         }
 
@@ -207,22 +210,22 @@ public:
 
         if (!start || !endStart)
         {
-            handler->PSendSysMessage("Invalid date '{}'. Use the YYYY-MM-DD format.", !start ? *startDate : *endDate);
+            handler->SendSysMessage(handler->PGetParseModuleString("mod-weekend-xp", 6, !start ? *startDate : *endDate));
             handler->SetSentErrorMessage(true);
             return true;
         }
 
         if (*endStart < *start)
         {
-            handler->PSendSysMessage("The end date must not be before the start date.");
+            handler->SendSysMessage(handler->PGetParseModuleString("mod-weekend-xp", 7));
             handler->SetSentErrorMessage(true);
             return true;
         }
 
         sWorldState->setWorldState(WS_JOYOUS_JOURNEYS_START, uint64(*start));
         sWorldState->setWorldState(WS_JOYOUS_JOURNEYS_END, uint64(*endStart + DAY));
-        handler->PSendSysMessage("Joyous Journeys scheduled from {} to {} (inclusive). The event is currently {}.",
-            FormatDate(JoyousJourneysStart()), JoyousJourneysEndDateString(), IsJoyousJourneysActive() ? "active" : "not active");
+        handler->SendSysMessage(handler->PGetParseModuleString("mod-weekend-xp", 4,
+            FormatDate(JoyousJourneysStart()), JoyousJourneysEndDateString(), IsJoyousJourneysActive()));
 
         return true;
     }
@@ -282,9 +285,7 @@ private:
 
     static std::string FormatDate(time_t when)
     {
-        char buffer[16];
-        strftime(buffer, sizeof(buffer), "%Y-%m-%d", localtime(&when));
-        return buffer;
+        return Acore::Time::TimeToTimestampStr(Seconds(when), "%Y-%m-%d");
     }
 
     void PlayerSettingSetRate(Player* player, float rate) const
@@ -470,7 +471,7 @@ public:
         if (mod->IsJoyousJourneysActive() && mod->ConfigJoyousJourneysXPRate())
         {
             if (mod->HasJoyousJourneysSchedule())
-                handler.PSendSysMessage("|cff00ccffThe Joyous Journeys event is active until {}! Experience gains have been increased. Type .weekendxp j off to disable it.|r", mod->JoyousJourneysEndDateString());
+                handler.PSendModuleSysMessage("mod-weekend-xp", 8, mod->JoyousJourneysEndDateString());
             else
                 handler.PSendSysMessage("|cff00ccffThe Joyous Journeys event is active! Experience gains have been increased. Type .weekendxp j off to disable it.|r");
         }
