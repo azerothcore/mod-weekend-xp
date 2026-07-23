@@ -48,3 +48,7 @@ INSERT INTO `command` (`name`, `security`, `help`) VALUES
 DELETE FROM `command` WHERE `name` IN ('weekendxp config');
 INSERT INTO `command` (`name`, `security`, `help`) VALUES
 ('weekendxp config', 0, 'Syntax: weekendxp config\nDisplays the current configuration for the weekendxp mod.');
+
+DELETE FROM `command` WHERE `name` IN ('weekendxp joyousjourneys schedule');
+INSERT INTO `command` (`name`, `security`, `help`) VALUES
+('weekendxp joyousjourneys schedule', 3, 'Syntax: weekendxp joyousjourneys schedule [$start $end || clear]\nSchedules the Joyous Journeys event. Dates use the YYYY-MM-DD format and are inclusive; the scheduled window overrides the XPWeekend.IsJoyousJourneysActive config.\nWithout arguments the current schedule is shown, "clear" removes it.');

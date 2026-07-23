@@ -62,6 +62,8 @@ XPWeekend.IsDKStartZoneRequired = 0
 
 # XPWeekend.IsJoyousJourneysActive = 0
 #     Promotional event, adds yet another layer of bonus on top of the current bonus (yay!)
+#     Ignored while a window is set with the `.weekendxp joyousjourneys schedule`
+#     command; the scheduled window decides whether the event is active instead.
 #     Default: 0 (Disabled)
 
 XPWeekend.IsJoyousJourneysActive = 0
