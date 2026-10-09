@@ -8,6 +8,12 @@
 
 This module is a xp module that will allow the server owner/host to select how much XP players can recieve on the weekend via a config file.
 
+During the weekend event it can also boost profession and weapon skill-ups,
+reputation and money (looted gold and quest rewards). `XPWeekend.Enabled` turns
+the module on or off, `XPWeekend.xpAmount` sets the rate of every bonus
+(1 = no bonus, 2 = double, 3 = triple, …), and each bonus, XP included, can be
+turned on or off on its own in `mod-double-xp-weekend.conf.dist`.
+
 
 ## How to use ingame
 

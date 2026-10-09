@@ -2,10 +2,18 @@
 #include "ScriptMgr.h"
 #include "Player.h"
 #include "Chat.h"
+#include "DataMap.h"
+#include "LootMgr.h"
+#include "QuestDef.h"
+#include "SpellMgr.h"
 #include "Timer.h"
+#include "World.h"
 #include "WorldState.h"
+#include <algorithm>
 #include <cstdio>
+#include <limits>
 #include <time.h>
+#include <unordered_map>
 
 using namespace Acore::ChatCommands;
 
@@ -29,6 +37,15 @@ enum WeekendXPWorldStates
     WS_JOYOUS_JOURNEYS_END   = 97302, // unix timestamp, first second AFTER the event
 };
 
+// Max-level quest money noted in OnPlayerQuestComputeXP and read back in OnPlayerCompleteQuest.
+// Keyed by quest id, so a quest rewarded from inside another quest's reward keeps both entries.
+struct WeekendXpQuestMoney : public DataMap::Base
+{
+    std::unordered_map<uint32 /*questId*/, uint32 /*maxLevelMoney*/> Pending;
+};
+
+static constexpr char const* WEEKEND_XP_QUEST_MONEY_KEY = "mod-weekend-xp.QuestMoney";
+
 class DoubleXpWeekend
 {
 
@@ -48,7 +65,7 @@ public:
 
     uint32 OnPlayerGiveXP(Player* player, uint32 originalAmount, uint8 xpSource) const
     {
-        if (!IsEventActive())
+        if (!_xpEnabled || !IsEventActive())
         {
             return originalAmount;
         }
@@ -72,6 +89,166 @@ public:
         return (uint32) newAmount;
     }
 
+    void OnPlayerUpdateGatheringSkill(uint32 skillId, uint32& gain) const
+    {
+        if (!IsProfessionSkill(skillId) && skillId != SKILL_LOCKPICKING)
+            return;
+
+        if (!_professionEnabled || !IsSkillBonusActive())
+            return;
+
+        gain = std::max(gain, BoostedSkillStep(gain));
+    }
+
+    void OnPlayerUpdateCraftingSkill(SkillLineAbilityEntry const* skill, uint32& gain) const
+    {
+        // Item-creating class spells also raise crafting skills, so only boost professions
+        if (!IsProfessionSkill(skill->SkillLine))
+            return;
+
+        if (!_professionEnabled || !IsSkillBonusActive())
+            return;
+
+        gain = std::max(gain, BoostedSkillStep(gain));
+    }
+
+    // Fishing, weapon skills and Defense have no gain hook, so the extra points are added after a
+    // successful skill-up
+    void OnPlayerUpdateSkill(Player* player, uint32 skillId, uint32 max, uint32 step, uint32 newValue) const
+    {
+        bool enabled;
+        if (skillId == SKILL_FISHING)
+            enabled = _professionEnabled;
+        else if (IsWeaponOrDefenseSkill(skillId))
+            enabled = _weaponSkillEnabled;
+        else
+            return;
+
+        if (!enabled || !IsSkillBonusActive())
+            return;
+
+        uint32 const boostedStep = BoostedSkillStep(step);
+        if (boostedStep <= step)
+            return;
+
+        uint32 const target = std::min<uint32>(newValue + (boostedStep - step), max);
+        if (target > newValue)
+            player->SetSkill(skillId, player->GetSkillStep(skillId), target, max);
+    }
+
+    void OnPlayerGiveReputation(int32 factionID, float& amount) const
+    {
+        // Only gains get the bonus, reputation losses stay as they are
+        if (amount <= 0.0f)
+            return;
+
+        float rate = 1.0f;
+
+        if (_reputationEnabled && IsEventActive())
+            rate *= _bonusRate;
+
+        if (IsJoyousJourneysActive() && ConfigJoyousJourneysRepRate())
+            rate *= ConfigJoyousJourneysRepRate();
+
+        if (rate == 1.0f)
+            return;
+
+        if (ExcludeInsaneReps())
+        {
+            switch (factionID)
+            {
+                case 349: // Ravenholdt
+                case 87:  // bloodsail bucaneers
+                case 21:  // Booty Bay
+                case 169: // Steemwhedle Cartel
+                case 577: // Everlook
+                case 369: // Gadgetzan
+                case 470: // Ratchet
+                case 909: // Darkmoon Faire
+                case 809: // Shen'dralar
+                    return;
+            }
+        }
+
+        amount *= rate;
+    }
+
+    void OnPlayerBeforeLootMoney(Loot* loot) const
+    {
+        if (!loot->gold || !IsMoneyBonusActive())
+            return;
+
+        loot->gold = uint32(std::min<double>(double(loot->gold) * _bonusRate, std::numeric_limits<uint32>::max()));
+    }
+
+    // Player::RewardQuest calls this right before it pays the max-level money; the quest windows
+    // call it too, possibly without a player. Notes that money for OnPlayerCompleteQuest.
+    void OnPlayerQuestComputeXP(Player* player, Quest const* quest) const
+    {
+        if (!player || !quest)
+            return;
+
+        if (!IsMoneyBonusActive())
+        {
+            if (WeekendXpQuestMoney* data = player->CustomData.Get<WeekendXpQuestMoney>(WEEKEND_XP_QUEST_MONEY_KEY))
+                data->Pending.erase(quest->GetQuestId());
+
+            return;
+        }
+
+        // Same condition as Player::RewardQuest
+        bool const moneyInsteadOfXp = player->GetLevel() >= sWorld->getIntConfig(CONFIG_MAX_PLAYER_LEVEL) ||
+            sScriptMgr->OnPlayerShouldBeRewardedWithMoneyInsteadOfExp(player);
+
+        WeekendXpQuestMoney* data = player->CustomData.GetDefault<WeekendXpQuestMoney>(WEEKEND_XP_QUEST_MONEY_KEY);
+        data->Pending[quest->GetQuestId()] = moneyInsteadOfXp ? quest->GetRewMoneyMaxLevel() : 0;
+    }
+
+    // Last call of Player::RewardQuest: pays the quest money bonus as a separate payment
+    void OnPlayerCompleteQuest(Player* player, Quest const* quest) const
+    {
+        WeekendXpQuestMoney* data = player->CustomData.Get<WeekendXpQuestMoney>(WEEKEND_XP_QUEST_MONEY_KEY);
+        if (!data)
+            return;
+
+        auto const itr = data->Pending.find(quest->GetQuestId());
+        if (itr == data->Pending.end())
+            return;
+
+        uint32 const maxLevelMoney = itr->second;
+        data->Pending.erase(itr);
+
+        if (!IsMoneyBonusActive())
+            return;
+
+        // Quests that take money, or pay nothing, are never touched
+        int64 money = int64(maxLevelMoney) + quest->GetRewOrReqMoney(player->GetLevel());
+        if (money <= 0)
+            return;
+
+        // Same play time limits as Player::RewardQuest
+        if (player->HasPlayerFlag(PLAYER_FLAGS_NO_PLAY_TIME))
+            return;
+
+        if (player->HasPlayerFlag(PLAYER_FLAGS_PARTIAL_PLAY_TIME))
+            money /= 2;
+
+        if (!money)
+            return;
+
+        int64 bonus = int64(double(money) * _bonusRate) - money;
+        if (!bonus)
+            return;
+
+        bonus = std::clamp<int64>(bonus, std::numeric_limits<int32>::min(), std::numeric_limits<int32>::max());
+
+        if (player->ModifyMoney(int32(bonus)) && bonus > 0)
+            player->UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_MONEY_FROM_QUEST_REWARD, uint32(bonus));
+
+        // Player::RewardQuest already saved the player before this hook
+        player->AdditionalSavingAddMask(ADDITIONAL_SAVING_INVENTORY_AND_GOLD);
+    }
+
     void OnPlayerLogin(Player* player, ChatHandler* handler) const
     {
         // TODO I am assuming that this is always called when a character logs in...
@@ -81,7 +258,11 @@ public:
 
         if (ConfigAnnounce())
         {
-            if (IsEventActive() && !ConfigAlwaysEnabled())
+            if (!_xpEnabled)
+            {
+                handler->PSendSysMessage("This server is running the |cff4CFF00Double XP Weekend |rmodule.");
+            }
+            else if (IsEventActive() && !ConfigAlwaysEnabled())
             {
                 float rate = GetExperienceRate(player);
                 handler->PSendSysMessage("It's the weekend! Your XP rate has been set to: {}", rate);
@@ -124,7 +305,7 @@ public:
     {
         Player* player = handler->GetPlayer();
 
-        const float actualRate = GetExperienceRate(player);
+        const float actualRate = _xpEnabled ? GetExperienceRate(player) : 1.0f;
         const bool isAnnounceEnabled = ConfigAnnounce();
         const bool isAlwaysEnabled = ConfigAlwaysEnabled();
         const bool isQuestOnly = ConfigQuestOnly();
@@ -143,7 +324,12 @@ public:
             xpRate,
             isIndividulaXpEnabled,
             isEnabled,
-            maxXpRate
+            maxXpRate,
+            _xpEnabled,
+            _professionEnabled,
+            _weaponSkillEnabled,
+            _reputationEnabled,
+            _moneyEnabled
         );
 
         return true;
@@ -160,7 +346,7 @@ public:
             return now >= JoyousJourneysStart() && now < JoyousJourneysEnd();
         }
 
-        return sConfigMgr->GetOption<bool>("XPWeekend.IsJoyousJourneysActive", false);
+        return _joyousJourneysActiveConfig;
     }
 
     bool HasJoyousJourneysSchedule() const { return JoyousJourneysEnd() != 0; }
@@ -181,7 +367,7 @@ public:
             if (!HasJoyousJourneysSchedule())
             {
                 handler->SendSysMessage(handler->PGetParseModuleString("mod-weekend-xp", 3,
-                    sConfigMgr->GetOption<bool>("XPWeekend.IsJoyousJourneysActive", false)));
+                    _joyousJourneysActiveConfig));
             }
             else
             {
@@ -231,20 +417,71 @@ public:
     }
 
     float ConfigJoyousJourneysXPRate() const { return sConfigMgr->GetOption<float>("XPWeekend.JoyousJourneysXPRate", 1.0f); }
-    float ConfigJoyousJourneysRepRate() const { return sConfigMgr->GetOption<float>("XPWeekend.JoyousJourneysRepRate", 1.10f); }
-    bool ExcludeInsaneReps() const { return sConfigMgr->GetOption<bool>("XPWeekend.ExcludeInsaneReps", true); }
+    float ConfigJoyousJourneysRepRate() const { return _joyousJourneysRepRate; }
+    bool ExcludeInsaneReps() const { return _excludeInsaneReps; }
     float ConfigMaxAllowedRate() const { return sConfigMgr->GetOption<float>("XPWeekend.MaxAllowedRate", 2.0f); }
+
+    // NOTE options read here are cached until the next config load or reload
+    void LoadConfig()
+    {
+        _enabled = sConfigMgr->GetOption<bool>("XPWeekend.Enabled", false);
+        _alwaysEnabled = sConfigMgr->GetOption<bool>("XPWeekend.AlwaysEnabled", false);
+        _joyousJourneysActiveConfig = sConfigMgr->GetOption<bool>("XPWeekend.IsJoyousJourneysActive", false);
+        _joyousJourneysRepRate = sConfigMgr->GetOption<float>("XPWeekend.JoyousJourneysRepRate", 1.10f);
+        _excludeInsaneReps = sConfigMgr->GetOption<bool>("XPWeekend.ExcludeInsaneReps", true);
+
+        _xpEnabled = sConfigMgr->GetOption<bool>("XPWeekend.XPEnabled", true);
+        _professionEnabled = sConfigMgr->GetOption<bool>("XPWeekend.ProfessionEnabled", true);
+        _weaponSkillEnabled = sConfigMgr->GetOption<bool>("XPWeekend.WeaponSkillEnabled", true);
+        _reputationEnabled = sConfigMgr->GetOption<bool>("XPWeekend.ReputationEnabled", true);
+        _moneyEnabled = sConfigMgr->GetOption<bool>("XPWeekend.MoneyEnabled", true);
+
+        // XPWeekend.xpAmount is the rate of every bonus, not only XP
+        _bonusRate = ConfigxpAmount();
+        if (_bonusRate <= 0.0f)
+            _bonusRate = 1.0f;
+    }
+
+    bool IsXPBonusEnabled() const { return _xpEnabled; }
 
 private:
 
+    bool _enabled = false;
+    bool _alwaysEnabled = false;
+    bool _joyousJourneysActiveConfig = false;
+    float _joyousJourneysRepRate = 1.10f;
+    bool _excludeInsaneReps = true;
+
+    bool _xpEnabled = true;
+    bool _professionEnabled = true;
+    bool _weaponSkillEnabled = true;
+    bool _reputationEnabled = true;
+    bool _moneyEnabled = true;
+    float _bonusRate = 2.0f;
+
+    // Skill points are whole numbers, so the boosted step is rounded down; skill bonuses only ever add
+    bool IsSkillBonusActive() const { return _bonusRate > 1.0f && IsEventActive(); }
+    uint32 BoostedSkillStep(uint32 step) const { return uint32(double(step) * _bonusRate); }
+
+    bool IsMoneyBonusActive() const { return _moneyEnabled && _bonusRate != 1.0f && IsEventActive(); }
+
+    static bool IsWeaponOrDefenseSkill(uint32 skillId)
+    {
+        if (skillId == SKILL_DEFENSE)
+            return true;
+
+        SkillLineEntry const* entry = sSkillLineStore.LookupEntry(skillId);
+        return entry && entry->categoryId == SKILL_CATEGORY_WEAPON;
+    }
+
     // NOTE keep options together to prevent having more than 1 potential default value
-    bool ConfigAlwaysEnabled() const { return sConfigMgr->GetOption<bool>("XPWeekend.AlwaysEnabled", false); }
+    bool ConfigAlwaysEnabled() const { return _alwaysEnabled; }
     bool ConfigAnnounce() const { return sConfigMgr->GetOption<bool>("XPWeekend.Announce", false); }
     bool ConfigQuestOnly() const { return sConfigMgr->GetOption<bool>("XPWeekend.QuestOnly", false); }
     uint32 ConfigMaxLevel() const { return sConfigMgr->GetOption<uint32>("XPWeekend.MaxLevel", 80); }
     float ConfigxpAmount() const { return sConfigMgr->GetOption<float>("XPWeekend.xpAmount", 2.0f); }
     bool ConfigIndividualXPEnabled() const { return sConfigMgr->GetOption<bool>("XPWeekend.IndividualXPEnabled", false); }
-    bool ConfigEnabled() const { return sConfigMgr->GetOption<bool>("XPWeekend.Enabled", false); }
+    bool ConfigEnabled() const { return _enabled; }
     bool ConfigIsDKStartZoneRequired() const { return sConfigMgr->GetOption<bool>("XPWeekend.IsDKStartZoneRequired", false); }
 
     bool IsDKStartZoneComplete(Player* player) const
@@ -388,16 +625,15 @@ private:
         {
             return true;
         }
-            
+
         if (!ConfigEnabled())
         {
             return false;
         }
 
-        time_t t = time(nullptr);
-        tm* now = localtime(&t);
+        std::tm const now = Acore::Time::TimeBreakdown();
 
-        return now->tm_wday == WD_FRIDAY || now->tm_wday == WD_SATURDAY || now->tm_wday == WD_SUNDAY;
+        return now.tm_wday == WD_FRIDAY || now.tm_wday == WD_SATURDAY || now.tm_wday == WD_SUNDAY;
     }
 };
 
@@ -459,7 +695,13 @@ public:
     DoubleXpWeekendPlayerScript() : PlayerScript("DoubleXpWeekend", {
         PLAYERHOOK_ON_LOGIN,
         PLAYERHOOK_ON_GIVE_EXP,
-        PLAYERHOOK_ON_GIVE_REPUTATION
+        PLAYERHOOK_ON_GIVE_REPUTATION,
+        PLAYERHOOK_ON_UPDATE_GATHERING_SKILL,
+        PLAYERHOOK_ON_UPDATE_CRAFTING_SKILL,
+        PLAYERHOOK_ON_UPDATE_SKILL,
+        PLAYERHOOK_ON_BEFORE_LOOT_MONEY,
+        PLAYERHOOK_ON_QUEST_COMPUTE_EXP,
+        PLAYERHOOK_ON_PLAYER_COMPLETE_QUEST
     }) { }
 
     void OnPlayerLogin(Player* player) override
@@ -468,7 +710,7 @@ public:
         ChatHandler handler = ChatHandler(player->GetSession());
         mod->OnPlayerLogin(player, &handler);
 
-        if (mod->IsJoyousJourneysActive() && mod->ConfigJoyousJourneysXPRate())
+        if (mod->IsXPBonusEnabled() && mod->IsJoyousJourneysActive() && mod->ConfigJoyousJourneysXPRate())
         {
             if (mod->HasJoyousJourneysSchedule())
                 handler.PSendModuleSysMessage("mod-weekend-xp", 8, mod->JoyousJourneysEndDateString());
@@ -485,34 +727,59 @@ public:
 
     void OnPlayerGiveReputation(Player* /*player*/, int32 factionID, float& amount, ReputationSource /*repSource*/) override
     {
-        DoubleXpWeekend* mod = DoubleXpWeekend::instance();
-        if (!mod->IsJoyousJourneysActive() || !mod->ConfigJoyousJourneysRepRate())
-            return;
-
-        if (mod->ExcludeInsaneReps())
-        {
-            switch (factionID)
-            {
-                case 349: // Ravenholdt
-                case 87:  // bloodsail bucaneers
-                case 21:  // Booty Bay
-                case 169: // Steemwhedle Cartel
-                case 577: // Everlook
-                case 369: // Gadgetzan
-                case 470: // Ratchet
-                case 909: // Darkmoon Faire
-                case 809: // Shen'dralar
-                    return;
-            }
-        }
-
-        amount *= mod->ConfigJoyousJourneysRepRate();
+        DoubleXpWeekend::instance()->OnPlayerGiveReputation(factionID, amount);
     }
 
+    void OnPlayerUpdateGatheringSkill(Player* /*player*/, uint32 skill_id, uint32 /*current*/, uint32 /*gray*/,
+        uint32 /*green*/, uint32 /*yellow*/, uint32& gain) override
+    {
+        DoubleXpWeekend::instance()->OnPlayerUpdateGatheringSkill(skill_id, gain);
+    }
+
+    void OnPlayerUpdateCraftingSkill(Player* /*player*/, SkillLineAbilityEntry const* skill, uint32 /*current_level*/,
+        uint32& gain) override
+    {
+        DoubleXpWeekend::instance()->OnPlayerUpdateCraftingSkill(skill, gain);
+    }
+
+    void OnPlayerUpdateSkill(Player* player, uint32 skillId, uint32 /*value*/, uint32 max, uint32 step,
+        uint32 newValue) override
+    {
+        DoubleXpWeekend::instance()->OnPlayerUpdateSkill(player, skillId, max, step, newValue);
+    }
+
+    void OnPlayerBeforeLootMoney(Player* /*player*/, Loot* loot) override
+    {
+        DoubleXpWeekend::instance()->OnPlayerBeforeLootMoney(loot);
+    }
+
+    void OnPlayerQuestComputeXP(Player* player, Quest const* quest, uint32& /*xpValue*/) override
+    {
+        DoubleXpWeekend::instance()->OnPlayerQuestComputeXP(player, quest);
+    }
+
+    void OnPlayerCompleteQuest(Player* player, Quest const* quest) override
+    {
+        DoubleXpWeekend::instance()->OnPlayerCompleteQuest(player, quest);
+    }
+};
+
+class DoubleXpWeekendWorldScript : public WorldScript
+{
+public:
+    DoubleXpWeekendWorldScript() : WorldScript("DoubleXpWeekendWorldScript", {
+        WORLDHOOK_ON_AFTER_CONFIG_LOAD
+    }) { }
+
+    void OnAfterConfigLoad(bool /*reload*/) override
+    {
+        DoubleXpWeekend::instance()->LoadConfig();
+    }
 };
 
 void AdddoublexpScripts()
 {
     new DoubleXpWeekendPlayerScript();
+    new DoubleXpWeekendWorldScript();
     new weekendxp_commandscript();
 }
