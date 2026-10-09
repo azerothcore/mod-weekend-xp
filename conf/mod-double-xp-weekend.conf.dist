@@ -40,6 +40,70 @@ XPWeekend.MaxAllowedRate = 2
 
 XPWeekend.AlwaysEnabled = 0
 
+# XPWeekend.Days
+#     Days the bonus starts on, divided by "," without spaces.
+#     0 = Sunday, 1 = Monday, 2 = Tuesday, 3 = Wednesday, 4 = Thursday,
+#     5 = Friday, 6 = Saturday
+#     An empty value means the bonus never starts (unless AlwaysEnabled = 1).
+#     Default: "5,6,0" (Friday, Saturday, Sunday)
+#
+
+XPWeekend.Days = "5,6,0"
+
+# XPWeekend.StartHour
+#     Hour (server local time) the bonus starts on each day in XPWeekend.Days.
+#     Days and hours follow the clock and time zone of the machine running
+#     the worldserver (often UTC). This is the "Realm time" of the in-game
+#     clock, not each player's local time.
+#     Range: 0-23
+#     Default: 0 (00:00)
+#
+
+XPWeekend.StartHour = 0
+
+# XPWeekend.EndHour
+#     Hour (server local time) the bonus ends. It is exclusive: the bonus is
+#     active until EndHour:00, not including it.
+#     If lower than StartHour, the window crosses midnight and ends on the
+#     next day (Saturday rolls over into Sunday).
+#     If equal to StartHour, the window lasts 24 hours (0 and 0 = whole day).
+#     Example: Days = "5", StartHour = 22, EndHour = 2
+#              = Friday 22:00 to Saturday 02:00
+#     Range: 0-23
+#     Default: 0
+#
+
+XPWeekend.EndHour = 0
+
+# XPWeekend.StartMessage
+#     Message broadcast to every online player when the bonus starts (at
+#     the XPWeekend.StartHour of a day in XPWeekend.Days).
+#     Windows that touch each other count as one event: with the default
+#     days and hours the broadcast is sent on Friday 00:00 only, not on
+#     Saturday and Sunday. There is no broadcast when the server starts
+#     during the bonus.
+#     Turning the bonus on or off with XPWeekend.Enabled or
+#     XPWeekend.AlwaysEnabled and `.reload config` also counts as a
+#     start or an end.
+#     The message is also sent to each player who logs in while the bonus
+#     is active, except while XPWeekend.AlwaysEnabled = 1.
+#     An empty value disables the message.
+#     Default: "The Double XP Event has started!"
+#
+
+XPWeekend.StartMessage = "The Double XP Event has started!"
+
+# XPWeekend.EndMessage
+#     Message sent to every online player when the bonus ends (at
+#     XPWeekend.EndHour). Windows that touch each other count as one
+#     event: with the default days and hours it is sent on Monday 00:00
+#     only.
+#     An empty value disables the message.
+#     Default: "The Double XP Event has ended!"
+#
+
+XPWeekend.EndMessage = "The Double XP Event has ended!"
+
 # XPWeekend.QuestOnly
 #     Restricts the experience bonus to quest rewards only.
 #     Default: 0 (Disabled, both creatures and quests are affected)

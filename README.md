@@ -8,6 +8,17 @@
 
 This module is a xp module that will allow the server owner/host to select how much XP players can recieve on the weekend via a config file.
 
+By default the bonus runs all day on Friday, Saturday and Sunday (server local
+time). The days and the daily start/end hour can be changed with
+`XPWeekend.Days`, `XPWeekend.StartHour` and `XPWeekend.EndHour` in
+`mod-double-xp-weekend.conf`.
+
+Online players are told when the bonus starts and ends, and players who log
+in during the bonus are told it is active (not while
+`XPWeekend.AlwaysEnabled = 1`). The texts can be changed (or turned off)
+with `XPWeekend.StartMessage` and `XPWeekend.EndMessage`; the comments of
+these options in the config file explain the details.
+
 
 ## How to use ingame
 
