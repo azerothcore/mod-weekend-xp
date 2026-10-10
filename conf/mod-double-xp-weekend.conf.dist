@@ -82,6 +82,7 @@ XPWeekend.IsDKStartZoneRequired = 0
 # rate whenever the weekend event is active (XPWeekend.Enabled on Friday-Sunday, or
 # XPWeekend.AlwaysEnabled). They are not affected by XPWeekend.XPEnabled, XPWeekend.MaxLevel,
 # XPWeekend.QuestOnly, XPWeekend.IsDKStartZoneRequired or the `.weekendxp rate` command.
+# They are all disabled by default: set the ones you want to 1.
 
 # XPWeekend.ProfessionEnabled
 #     Enable or disable the profession bonus. Each successful skill-up gives
@@ -90,9 +91,9 @@ XPWeekend.IsDKStartZoneRequired = 0
 #     Cooking, First Aid and Fishing. The skill-up chance is unchanged and the skill never goes
 #     above its max.
 #     0 = disabled, 1 = enabled
-#     Default: 1 (Enabled)
+#     Default: 0 (Disabled)
 
-XPWeekend.ProfessionEnabled = 1
+XPWeekend.ProfessionEnabled = 0
 
 # XPWeekend.WeaponSkillEnabled
 #     Enable or disable the weapon skill bonus. Each successful weapon skill-up (swords, axes,
@@ -100,9 +101,9 @@ XPWeekend.ProfessionEnabled = 1
 #     successful Defense skill-up gives SkillGain.Defense x XPWeekend.xpAmount points.
 #     The skill-up chance is unchanged and the skill never goes above its max (5 x level).
 #     0 = disabled, 1 = enabled
-#     Default: 1 (Enabled)
+#     Default: 0 (Disabled)
 
-XPWeekend.WeaponSkillEnabled = 1
+XPWeekend.WeaponSkillEnabled = 0
 
 # XPWeekend.ReputationEnabled
 #     Enable or disable the reputation bonus. Reputation gains from kills and quests are
@@ -111,9 +112,9 @@ XPWeekend.WeaponSkillEnabled = 1
 #     Factions excluded by XPWeekend.ExcludeInsaneReps get no bonus.
 #     The Joyous Journeys reputation bonus does not depend on this option.
 #     0 = disabled, 1 = enabled
-#     Default: 1 (Enabled)
+#     Default: 0 (Disabled)
 
-XPWeekend.ReputationEnabled = 1
+XPWeekend.ReputationEnabled = 0
 
 # XPWeekend.MoneyEnabled
 #     Enable or disable the money bonus. Looted gold (shared in groups after multiplying) and
@@ -121,9 +122,9 @@ XPWeekend.ReputationEnabled = 1
 #     XPWeekend.xpAmount. Trade, mail, auction house, vendor and any other money is never
 #     multiplied. Quest windows and the quest complete message still show the base amount.
 #     0 = disabled, 1 = enabled
-#     Default: 1 (Enabled)
+#     Default: 0 (Disabled)
 
-XPWeekend.MoneyEnabled = 1
+XPWeekend.MoneyEnabled = 0
 
 # XPWeekend.IsJoyousJourneysActive = 0
 #     Promotional event, adds yet another layer of bonus on top of the current bonus (yay!)

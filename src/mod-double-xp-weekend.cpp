@@ -37,6 +37,20 @@ enum WeekendXPWorldStates
     WS_JOYOUS_JOURNEYS_END   = 97302, // unix timestamp, first second AFTER the event
 };
 
+// Reputation factions left out of the bonus by XPWeekend.ExcludeInsaneReps
+enum WeekendXPInsaneFactions
+{
+    INSANE_FACTION_BOOTY_BAY      = 21,
+    INSANE_FACTION_BLOODSAIL      = 87,
+    INSANE_FACTION_STEAMWHEEDLE   = 169,
+    INSANE_FACTION_RAVENHOLDT     = 349,
+    INSANE_FACTION_GADGETZAN      = 369,
+    INSANE_FACTION_RATCHET        = 470,
+    INSANE_FACTION_EVERLOOK       = 577,
+    INSANE_FACTION_SHENDRALAR     = 809,
+    INSANE_FACTION_DARKMOON_FAIRE = 909,
+};
+
 // Max-level quest money noted in OnPlayerQuestComputeXP and read back in OnPlayerCompleteQuest.
 // Keyed by quest id, so a quest rewarded from inside another quest's reward keeps both entries.
 struct WeekendXpQuestMoney : public DataMap::Base
@@ -157,15 +171,15 @@ public:
         {
             switch (factionID)
             {
-                case 349: // Ravenholdt
-                case 87:  // bloodsail bucaneers
-                case 21:  // Booty Bay
-                case 169: // Steemwhedle Cartel
-                case 577: // Everlook
-                case 369: // Gadgetzan
-                case 470: // Ratchet
-                case 909: // Darkmoon Faire
-                case 809: // Shen'dralar
+                case INSANE_FACTION_BOOTY_BAY:
+                case INSANE_FACTION_BLOODSAIL:
+                case INSANE_FACTION_STEAMWHEEDLE:
+                case INSANE_FACTION_RAVENHOLDT:
+                case INSANE_FACTION_GADGETZAN:
+                case INSANE_FACTION_RATCHET:
+                case INSANE_FACTION_EVERLOOK:
+                case INSANE_FACTION_SHENDRALAR:
+                case INSANE_FACTION_DARKMOON_FAIRE:
                     return;
             }
         }
@@ -431,10 +445,10 @@ public:
         _excludeInsaneReps = sConfigMgr->GetOption<bool>("XPWeekend.ExcludeInsaneReps", true);
 
         _xpEnabled = sConfigMgr->GetOption<bool>("XPWeekend.XPEnabled", true);
-        _professionEnabled = sConfigMgr->GetOption<bool>("XPWeekend.ProfessionEnabled", true);
-        _weaponSkillEnabled = sConfigMgr->GetOption<bool>("XPWeekend.WeaponSkillEnabled", true);
-        _reputationEnabled = sConfigMgr->GetOption<bool>("XPWeekend.ReputationEnabled", true);
-        _moneyEnabled = sConfigMgr->GetOption<bool>("XPWeekend.MoneyEnabled", true);
+        _professionEnabled = sConfigMgr->GetOption<bool>("XPWeekend.ProfessionEnabled", false);
+        _weaponSkillEnabled = sConfigMgr->GetOption<bool>("XPWeekend.WeaponSkillEnabled", false);
+        _reputationEnabled = sConfigMgr->GetOption<bool>("XPWeekend.ReputationEnabled", false);
+        _moneyEnabled = sConfigMgr->GetOption<bool>("XPWeekend.MoneyEnabled", false);
 
         // XPWeekend.xpAmount is the rate of every bonus, not only XP. Between 0 and 1 it only
         // lowers XP: the other bonuses never take anything away
@@ -452,10 +466,10 @@ private:
     bool _excludeInsaneReps = true;
 
     bool _xpEnabled = true;
-    bool _professionEnabled = true;
-    bool _weaponSkillEnabled = true;
-    bool _reputationEnabled = true;
-    bool _moneyEnabled = true;
+    bool _professionEnabled = false;
+    bool _weaponSkillEnabled = false;
+    bool _reputationEnabled = false;
+    bool _moneyEnabled = false;
     float _bonusRate = 2.0f;
 
     // Skill points are whole numbers, so the boosted step is rounded down; skill bonuses only ever add
