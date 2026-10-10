@@ -98,12 +98,14 @@ public:
             }
         }
 
-        if (!_startMessage.empty() && IsEventActive() && !ConfigAlwaysEnabled())
+        if (_announceStartEnd && !_startMessage.empty() && IsEventActive()
+            && !ConfigAlwaysEnabled())
             handler->SendSysMessage(_startMessage);
     }
 
     // Broadcasts XPWeekend.StartMessage / XPWeekend.EndMessage to every online
-    // player when the event turns on or off.
+    // player when the event turns on or off, if XPWeekend.AnnounceStartEnd
+    // is on. The state is tracked even while it is off.
     void OnWorldUpdate(uint32 diff)
     {
         _stateCheckTimer += diff;
@@ -127,7 +129,7 @@ public:
         _wasActive = active;
 
         std::string const& message = active ? _startMessage : _endMessage;
-        if (!message.empty())
+        if (_announceStartEnd && !message.empty())
             ChatHandler(nullptr).SendWorldText("{}", message);
     }
 
@@ -278,6 +280,8 @@ public:
         int32 const startHour = LoadHourOption("XPWeekend.StartHour");
         int32 const endHour = LoadHourOption("XPWeekend.EndHour");
 
+        _announceStartEnd =
+            sConfigMgr->GetOption<bool>("XPWeekend.AnnounceStartEnd", false);
         _startMessage = sConfigMgr->GetOption<std::string>(
             "XPWeekend.StartMessage", "The Double XP Event has started!");
         _endMessage = sConfigMgr->GetOption<std::string>(
@@ -318,7 +322,8 @@ private:
     // (0 = Sunday). Filled by LoadConfig().
     std::bitset<7 * 24> _activeHours;
 
-    // Filled by LoadConfig(). Empty = do not send.
+    // Filled by LoadConfig(). An empty message is not sent.
+    bool _announceStartEnd = false;
     std::string _startMessage;
     std::string _endMessage;
 

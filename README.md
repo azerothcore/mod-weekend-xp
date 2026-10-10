@@ -13,11 +13,11 @@ time). The days and the daily start/end hour can be changed with
 `XPWeekend.Days`, `XPWeekend.StartHour` and `XPWeekend.EndHour` in
 `mod-double-xp-weekend.conf`.
 
-Online players are told when the bonus starts and ends, and players who log
-in during the bonus are told it is active (not while
-`XPWeekend.AlwaysEnabled = 1`). The texts can be changed (or turned off)
-with `XPWeekend.StartMessage` and `XPWeekend.EndMessage`; the comments of
-these options in the config file explain the details.
+With `XPWeekend.AnnounceStartEnd = 1` (off by default), online players are
+told when the bonus starts and ends, and players who log in during the bonus
+are told it is active (not while `XPWeekend.AlwaysEnabled = 1`). The texts
+can be changed with `XPWeekend.StartMessage` and `XPWeekend.EndMessage`; the
+comments of these options in the config file explain the details.
 
 
 ## How to use ingame

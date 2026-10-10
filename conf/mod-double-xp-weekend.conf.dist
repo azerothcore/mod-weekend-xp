@@ -75,30 +75,37 @@ XPWeekend.StartHour = 0
 
 XPWeekend.EndHour = 0
 
-# XPWeekend.StartMessage
-#     Message broadcast to every online player when the bonus starts (at
-#     the XPWeekend.StartHour of a day in XPWeekend.Days).
+# XPWeekend.AnnounceStartEnd
+#     Broadcasts XPWeekend.StartMessage to every online player when the
+#     bonus starts (at the XPWeekend.StartHour of a day in XPWeekend.Days)
+#     and XPWeekend.EndMessage when it ends (at XPWeekend.EndHour).
 #     Windows that touch each other count as one event: with the default
-#     days and hours the broadcast is sent on Friday 00:00 only, not on
-#     Saturday and Sunday. There is no broadcast when the server starts
-#     during the bonus.
+#     days and hours the broadcasts are sent on Friday 00:00 and Monday
+#     00:00 only. There is no broadcast when the server starts during the
+#     bonus.
 #     Turning the bonus on or off with XPWeekend.Enabled or
 #     XPWeekend.AlwaysEnabled and `.reload config` also counts as a
 #     start or an end.
-#     The message is also sent to each player who logs in while the bonus
-#     is active, except while XPWeekend.AlwaysEnabled = 1.
-#     An empty value disables the message.
+#     XPWeekend.StartMessage is also sent to each player who logs in while
+#     the bonus is active, except while XPWeekend.AlwaysEnabled = 1.
+#     Default: 0 (Disabled)
+#
+
+XPWeekend.AnnounceStartEnd = 0
+
+# XPWeekend.StartMessage
+#     Text sent when the bonus starts and at login during the bonus.
+#     Only used when XPWeekend.AnnounceStartEnd = 1.
+#     An empty value disables this message.
 #     Default: "The Double XP Event has started!"
 #
 
 XPWeekend.StartMessage = "The Double XP Event has started!"
 
 # XPWeekend.EndMessage
-#     Message sent to every online player when the bonus ends (at
-#     XPWeekend.EndHour). Windows that touch each other count as one
-#     event: with the default days and hours it is sent on Monday 00:00
-#     only.
-#     An empty value disables the message.
+#     Text sent when the bonus ends.
+#     Only used when XPWeekend.AnnounceStartEnd = 1.
+#     An empty value disables this message.
 #     Default: "The Double XP Event has ended!"
 #
 
