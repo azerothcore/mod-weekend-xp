@@ -271,7 +271,8 @@ public:
         // but I'm not sure how to handle "This shouldn't be happening but it is" kind of scenarios in acore
         MigratePlayerSettings(player, handler);
 
-        if (ConfigAnnounce())
+        // XPWeekend.AnnounceStartEnd replaces the XPWeekend.Announce login text
+        if (!_announceStartEnd && ConfigAnnounce())
         {
             if (!_xpEnabled)
             {
@@ -749,7 +750,7 @@ private:
         }
 
         std::tm const now = Acore::Time::TimeBreakdown();
-        return _activeHours.test(now.tm_wday * 24 + now.tm_hour);
+        return _activeHours[now.tm_wday * 24 + now.tm_hour];
     }
 };
 

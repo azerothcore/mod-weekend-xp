@@ -108,6 +108,8 @@ XPWeekend.EndHour = 0
 #     start or an end.
 #     XPWeekend.StartMessage is also sent to each player who logs in while
 #     the bonus is active, except while XPWeekend.AlwaysEnabled = 1.
+#     While this option is on, the XPWeekend.Announce login message is not
+#     sent, so the two do not show together.
 #     Default: 0 (Disabled)
 #
 
