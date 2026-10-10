@@ -237,12 +237,12 @@ public:
             return;
 
         int64 bonus = int64(double(money) * _bonusRate) - money;
-        if (!bonus)
+        if (bonus <= 0)
             return;
 
-        bonus = std::clamp<int64>(bonus, std::numeric_limits<int32>::min(), std::numeric_limits<int32>::max());
+        bonus = std::min<int64>(bonus, std::numeric_limits<int32>::max());
 
-        if (player->ModifyMoney(int32(bonus)) && bonus > 0)
+        if (player->ModifyMoney(int32(bonus)))
             player->UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_MONEY_FROM_QUEST_REWARD, uint32(bonus));
 
         // Player::RewardQuest already saved the player before this hook
@@ -436,10 +436,9 @@ public:
         _reputationEnabled = sConfigMgr->GetOption<bool>("XPWeekend.ReputationEnabled", true);
         _moneyEnabled = sConfigMgr->GetOption<bool>("XPWeekend.MoneyEnabled", true);
 
-        // XPWeekend.xpAmount is the rate of every bonus, not only XP
-        _bonusRate = ConfigxpAmount();
-        if (_bonusRate <= 0.0f)
-            _bonusRate = 1.0f;
+        // XPWeekend.xpAmount is the rate of every bonus, not only XP. Between 0 and 1 it only
+        // lowers XP: the other bonuses never take anything away
+        _bonusRate = std::max(ConfigxpAmount(), 1.0f);
     }
 
     bool IsXPBonusEnabled() const { return _xpEnabled; }
@@ -463,7 +462,7 @@ private:
     bool IsSkillBonusActive() const { return _bonusRate > 1.0f && IsEventActive(); }
     uint32 BoostedSkillStep(uint32 step) const { return uint32(double(step) * _bonusRate); }
 
-    bool IsMoneyBonusActive() const { return _moneyEnabled && _bonusRate != 1.0f && IsEventActive(); }
+    bool IsMoneyBonusActive() const { return _moneyEnabled && _bonusRate > 1.0f && IsEventActive(); }
 
     static bool IsWeaponOrDefenseSkill(uint32 skillId)
     {
