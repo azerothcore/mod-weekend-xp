@@ -3,13 +3,18 @@
 #include "Player.h"
 #include "Chat.h"
 #include "DataMap.h"
+#include "Log.h"
 #include "LootMgr.h"
 #include "QuestDef.h"
 #include "SpellMgr.h"
+#include "StringConvert.h"
+#include "StringFormat.h"
 #include "Timer.h"
+#include "Tokenize.h"
 #include "World.h"
 #include "WorldState.h"
 #include <algorithm>
+#include <bitset>
 #include <cstdio>
 #include <limits>
 #include <time.h>
@@ -23,10 +28,6 @@ enum WeekendXP
     SETTING_WEEKEND_XP_DISABLE = 1,
     SETTING_WEEKEND_XP_VERSION = 2,
     SETTING_WEEKEND_XP_JOYOUS_JOURNEYS = 3,
-
-    WD_FRIDAY   = 5,
-    WD_SATURDAY = 6,
-    WD_SUNDAY   = 0,
 };
 
 // Indices into the characters DB `worldstates` table. Must be unique across the
@@ -270,7 +271,8 @@ public:
         // but I'm not sure how to handle "This shouldn't be happening but it is" kind of scenarios in acore
         MigratePlayerSettings(player, handler);
 
-        if (ConfigAnnounce())
+        // XPWeekend.AnnounceStartEnd replaces the XPWeekend.Announce login text
+        if (!_announceStartEnd && ConfigAnnounce())
         {
             if (!_xpEnabled)
             {
@@ -291,6 +293,40 @@ public:
                 handler->PSendSysMessage("This server is running the |cff4CFF00Double XP Weekend |rmodule.");
             }
         }
+
+        if (_announceStartEnd && !_startMessage.empty() && IsEventActive()
+            && !ConfigAlwaysEnabled())
+            handler->SendSysMessage(_startMessage);
+    }
+
+    // Broadcasts XPWeekend.StartMessage / XPWeekend.EndMessage to every online
+    // player when the event turns on or off, if XPWeekend.AnnounceStartEnd
+    // is on. The state is tracked even while it is off.
+    void OnWorldUpdate(uint32 diff)
+    {
+        _stateCheckTimer += diff;
+        if (_stateCheckTimer < STATE_CHECK_INTERVAL)
+            return;
+
+        _stateCheckTimer = 0;
+
+        bool const active = IsEventActive();
+
+        // First check after startup: only remember the state, do not announce.
+        if (!_wasActive)
+        {
+            _wasActive = active;
+            return;
+        }
+
+        if (active == *_wasActive)
+            return;
+
+        _wasActive = active;
+
+        std::string const& message = active ? _startMessage : _endMessage;
+        if (_announceStartEnd && !message.empty())
+            ChatHandler(nullptr).SendWorldText("{}", message);
     }
 
     bool HandleSetXPBonusCommand(ChatHandler* handler, float rate) const
@@ -453,11 +489,80 @@ public:
         // XPWeekend.xpAmount is the rate of every bonus, not only XP. Between 0 and 1 it only
         // lowers XP: the other bonuses never take anything away
         _bonusRate = std::max(ConfigxpAmount(), 1.0f);
+
+        // Builds the bonus window from XPWeekend.Days, XPWeekend.StartHour
+        // and XPWeekend.EndHour.
+        std::string const days =
+            sConfigMgr->GetOption<std::string>("XPWeekend.Days", "5,6,0");
+        int32 const startHour = LoadHourOption("XPWeekend.StartHour");
+        int32 const endHour = LoadHourOption("XPWeekend.EndHour");
+
+        _announceStartEnd =
+            sConfigMgr->GetOption<bool>("XPWeekend.AnnounceStartEnd", false);
+        _startMessage = sConfigMgr->GetOption<std::string>(
+            "XPWeekend.StartMessage", "The Double XP Event has started!");
+        _endMessage = sConfigMgr->GetOption<std::string>(
+            "XPWeekend.EndMessage", "The Double XP Event has ended!");
+
+        // EndHour is exclusive; EndHour == StartHour means a 24-hour window.
+        uint32 length = (endHour - startHour + 24) % 24;
+        if (!length)
+            length = 24;
+
+        _activeHours.reset();
+
+        for (std::string_view entry : Acore::Tokenize(days, ',', false))
+        {
+            std::string const trimmed =
+                Acore::String::Trim(std::string(entry), std::locale());
+            if (trimmed.empty())
+                continue;
+
+            Optional<uint32> const day = Acore::StringTo<uint32>(trimmed);
+            if (!day || *day > 6)
+            {
+                LOG_ERROR("module", "XPWeekend.Days: invalid entry '{}', "
+                    "expected 0-6 (0 = Sunday). Entry ignored.", trimmed);
+                continue;
+            }
+
+            // A window that crosses midnight on Saturday wraps to Sunday.
+            for (uint32 hour = 0; hour < length; ++hour)
+                _activeHours.set((*day * 24 + startHour + hour)
+                    % _activeHours.size());
+        }
     }
 
     bool IsXPBonusEnabled() const { return _xpEnabled; }
 
 private:
+
+    // Bit index is `weekday * 24 + hour`, weekday in `tm_wday` numbering
+    // (0 = Sunday). Filled by LoadConfig().
+    std::bitset<7 * 24> _activeHours;
+
+    // Filled by LoadConfig(). An empty message is not sent.
+    bool _announceStartEnd = false;
+    std::string _startMessage;
+    std::string _endMessage;
+
+    static constexpr uint32 STATE_CHECK_INTERVAL = 1000; // ms
+    uint32 _stateCheckTimer = 0;
+    // Event state at the last check; unset until the first check.
+    Optional<bool> _wasActive;
+
+    static int32 LoadHourOption(std::string const& name)
+    {
+        int32 const hour = sConfigMgr->GetOption<int32>(name, 0);
+        if (hour < 0 || hour > 23)
+        {
+            LOG_ERROR("module", "{}: invalid value {}, expected 0-23. "
+                "Using 0.", name, hour);
+            return 0;
+        }
+
+        return hour;
+    }
 
     bool _enabled = false;
     bool _alwaysEnabled = false;
@@ -645,8 +750,7 @@ private:
         }
 
         std::tm const now = Acore::Time::TimeBreakdown();
-
-        return now.tm_wday == WD_FRIDAY || now.tm_wday == WD_SATURDAY || now.tm_wday == WD_SUNDAY;
+        return _activeHours[now.tm_wday * 24 + now.tm_hour];
     }
 };
 
@@ -781,12 +885,18 @@ class DoubleXpWeekendWorldScript : public WorldScript
 {
 public:
     DoubleXpWeekendWorldScript() : WorldScript("DoubleXpWeekendWorldScript", {
-        WORLDHOOK_ON_AFTER_CONFIG_LOAD
+        WORLDHOOK_ON_AFTER_CONFIG_LOAD,
+        WORLDHOOK_ON_UPDATE
     }) { }
 
     void OnAfterConfigLoad(bool /*reload*/) override
     {
         DoubleXpWeekend::instance()->LoadConfig();
+    }
+
+    void OnUpdate(uint32 diff) override
+    {
+        DoubleXpWeekend::instance()->OnWorldUpdate(diff);
     }
 };
 

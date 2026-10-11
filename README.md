@@ -15,6 +15,17 @@ the module on or off, `XPWeekend.xpAmount` sets the rate of every bonus
 turned on or off on its own in `mod-double-xp-weekend.conf.dist`. Only the XP
 bonus is on by default.
 
+By default the event runs all day on Friday, Saturday and Sunday (server local
+time). The days and the daily start/end hour can be changed with
+`XPWeekend.Days`, `XPWeekend.StartHour` and `XPWeekend.EndHour` in
+`mod-double-xp-weekend.conf`.
+
+With `XPWeekend.AnnounceStartEnd = 1` (off by default), online players are
+told when the event starts and ends, and players who log in during the event
+are told it is active (not while `XPWeekend.AlwaysEnabled = 1`). The texts
+can be changed with `XPWeekend.StartMessage` and `XPWeekend.EndMessage`; the
+comments of these options in the config file explain the details.
+
 
 ## How to use ingame
 
