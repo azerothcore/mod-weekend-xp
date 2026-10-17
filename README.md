@@ -22,9 +22,16 @@ time). The days and the daily start/end hour can be changed with
 
 With `XPWeekend.AnnounceStartEnd = 1` (off by default), online players are
 told when the event starts and ends, and players who log in during the event
-are told it is active (not while `XPWeekend.AlwaysEnabled = 1`). The texts
-can be changed with `XPWeekend.StartMessage` and `XPWeekend.EndMessage`; the
-comments of these options in the config file explain the details.
+are told it is active (not while `XPWeekend.AlwaysEnabled = 1`). Each player
+gets the texts in their client language. They are stored in the world database
+tables `module_string` and `module_string_locale` (module `mod-weekend-xp`,
+ids 16 and 17), where they can be translated or changed (apply with
+`.reload module_string`). An empty `module_string` text turns that message
+off. The module's SQL file resets these rows each time it changes, so redo
+such edits after updating the module. The `XPWeekend.AnnounceStartEnd` comment
+in the config file explains the details. The old `XPWeekend.StartMessage` and
+`XPWeekend.EndMessage` options were removed and are ignored if still set: move
+a custom or empty text into ids 16 and 17.
 
 
 ## How to use ingame
