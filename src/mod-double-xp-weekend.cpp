@@ -5,6 +5,7 @@
 #include "DataMap.h"
 #include "Log.h"
 #include "LootMgr.h"
+#include "ObjectMgr.h"
 #include "QuestDef.h"
 #include "SpellMgr.h"
 #include "StringConvert.h"
@@ -12,6 +13,8 @@
 #include "Timer.h"
 #include "Tokenize.h"
 #include "World.h"
+#include "WorldSession.h"
+#include "WorldSessionMgr.h"
 #include "WorldState.h"
 #include <algorithm>
 #include <bitset>
@@ -276,32 +279,39 @@ public:
         {
             if (!_xpEnabled)
             {
-                handler->PSendSysMessage("This server is running the |cff4CFF00Double XP Weekend |rmodule.");
+                // "module running"
+                handler->PSendModuleSysMessage("mod-weekend-xp", 9);
             }
             else if (IsEventActive() && !ConfigAlwaysEnabled())
             {
                 float rate = GetExperienceRate(player);
-                handler->PSendSysMessage("It's the weekend! Your XP rate has been set to: {}", rate);
+                // "weekend rate"
+                handler->PSendModuleSysMessage("mod-weekend-xp", 10, rate);
             }
             else if (IsEventActive() && ConfigAlwaysEnabled())
             {
                 float rate = GetExperienceRate(player);
-                handler->PSendSysMessage("Your XP rate has been set to: {}", rate);
+                // "rate"
+                handler->PSendModuleSysMessage("mod-weekend-xp", 11, rate);
             }
             else
             {
-                handler->PSendSysMessage("This server is running the |cff4CFF00Double XP Weekend |rmodule.");
+                // "module running"
+                handler->PSendModuleSysMessage("mod-weekend-xp", 9);
             }
         }
 
-        if (_announceStartEnd && !_startMessage.empty() && IsEventActive()
-            && !ConfigAlwaysEnabled())
-            handler->SendSysMessage(_startMessage);
+        if (_announceStartEnd && IsEventActive() && !ConfigAlwaysEnabled())
+        {
+            std::string const text = GetAnnounceText(player, 16); // "started"
+            if (!text.empty())
+                handler->SendSysMessage(text);
+        }
     }
 
-    // Broadcasts XPWeekend.StartMessage / XPWeekend.EndMessage to every online
-    // player when the event turns on or off, if XPWeekend.AnnounceStartEnd
-    // is on. The state is tracked even while it is off.
+    // Broadcasts the start or end module string (ids 16/17) to every online
+    // player in their own locale when the event turns on or off, if
+    // XPWeekend.AnnounceStartEnd is on. The state is tracked even while off.
     void OnWorldUpdate(uint32 diff)
     {
         _stateCheckTimer += diff;
@@ -324,9 +334,16 @@ public:
 
         _wasActive = active;
 
-        std::string const& message = active ? _startMessage : _endMessage;
-        if (_announceStartEnd && !message.empty())
-            ChatHandler(nullptr).SendWorldText("{}", message);
+        if (!_announceStartEnd)
+            return;
+
+        uint32 const id = active ? 16 : 17; // 16 start, 17 end
+        sWorldSessionMgr->DoForAllOnlinePlayers([id](Player* player)
+        {
+            std::string const text = GetAnnounceText(player, id);
+            if (!text.empty())
+                ChatHandler(player->GetSession()).SendSysMessage(text);
+        });
     }
 
     bool HandleSetXPBonusCommand(ChatHandler* handler, float rate) const
@@ -499,10 +516,6 @@ public:
 
         _announceStartEnd =
             sConfigMgr->GetOption<bool>("XPWeekend.AnnounceStartEnd", false);
-        _startMessage = sConfigMgr->GetOption<std::string>(
-            "XPWeekend.StartMessage", "The Double XP Event has started!");
-        _endMessage = sConfigMgr->GetOption<std::string>(
-            "XPWeekend.EndMessage", "The Double XP Event has ended!");
 
         // EndHour is exclusive; EndHour == StartHour means a 24-hour window.
         uint32 length = (endHour - startHour + 24) % 24;
@@ -541,10 +554,22 @@ private:
     // (0 = Sunday). Filled by LoadConfig().
     std::bitset<7 * 24> _activeHours;
 
-    // Filled by LoadConfig(). An empty message is not sent.
+    // Filled by LoadConfig().
     bool _announceStartEnd = false;
-    std::string _startMessage;
-    std::string _endMessage;
+
+    // Start/end text in the player's locale; empty when the enUS text is empty
+    // or missing, which turns that message off for every locale
+    static std::string GetAnnounceText(Player* player, uint32 id)
+    {
+        // A locale row alone, or an empty enUS text with filled locale rows,
+        // still has translations: check the enUS text itself
+        ModuleString const* row =
+            sObjectMgr->GetModuleString("mod-weekend-xp", id);
+        if (!row || row->Content.empty() || row->Content[LOCALE_enUS].empty())
+            return "";
+
+        return *player->GetSession()->GetModuleString("mod-weekend-xp", id);
+    }
 
     static constexpr uint32 STATE_CHECK_INTERVAL = 1000; // ms
     uint32 _stateCheckTimer = 0;
@@ -789,13 +814,15 @@ public:
         DoubleXpWeekend* mod = DoubleXpWeekend::instance();
         if (!mod->IsJoyousJourneysActive())
         {
-            handler->PSendSysMessage("The Joyous Journeys event is not enabled on this server.");
+            // "not enabled"
+            handler->PSendModuleSysMessage("mod-weekend-xp", 13);
             handler->SetSentErrorMessage(true);
             return true;
         }
 
         handler->GetPlayer()->UpdatePlayerSetting("mod-double-xp-weekend", SETTING_WEEKEND_XP_JOYOUS_JOURNEYS, !enable);
-        handler->PSendSysMessage("Joyous Journeys experience boost {}.", !enable ? "disabled" : "enabled");
+        // 14 "enabled", 15 "disabled"
+        handler->PSendModuleSysMessage("mod-weekend-xp", enable ? 14 : 15);
         return true;
     }
 
@@ -831,8 +858,8 @@ public:
         {
             if (mod->HasJoyousJourneysSchedule())
                 handler.PSendModuleSysMessage("mod-weekend-xp", 8, mod->JoyousJourneysEndDateString());
-            else
-                handler.PSendSysMessage("|cff00ccffThe Joyous Journeys event is active! Experience gains have been increased. Type .weekendxp j off to disable it.|r");
+            else // "event active", no end date
+                handler.PSendModuleSysMessage("mod-weekend-xp", 12);
         }
     }
 

@@ -96,9 +96,9 @@ XPWeekend.StartHour = 0
 XPWeekend.EndHour = 0
 
 # XPWeekend.AnnounceStartEnd
-#     Broadcasts XPWeekend.StartMessage to every online player when the
-#     bonus starts (at the XPWeekend.StartHour of a day in XPWeekend.Days)
-#     and XPWeekend.EndMessage when it ends (at XPWeekend.EndHour).
+#     Broadcasts a start text to every online player when the bonus
+#     starts (at the XPWeekend.StartHour of a day in XPWeekend.Days)
+#     and an end text when it ends (at XPWeekend.EndHour).
 #     Windows that touch each other count as one event: with the default
 #     days and hours the broadcasts are sent on Friday 00:00 and Monday
 #     00:00 only. There is no broadcast when the server starts during the
@@ -106,32 +106,21 @@ XPWeekend.EndHour = 0
 #     Turning the bonus on or off with XPWeekend.Enabled or
 #     XPWeekend.AlwaysEnabled and `.reload config` also counts as a
 #     start or an end.
-#     XPWeekend.StartMessage is also sent to each player who logs in while
-#     the bonus is active, except while XPWeekend.AlwaysEnabled = 1.
+#     The start text is also sent to each player who logs in while the
+#     bonus is active, except while XPWeekend.AlwaysEnabled = 1.
+#     The texts are in the world database tables `module_string` and
+#     `module_string_locale` (module "mod-weekend-xp", id 16 for the
+#     start, id 17 for the end), so each player gets them in their
+#     client language. Change or translate them there and run
+#     `.reload module_string`. An empty enUS text in `module_string`
+#     turns that message off. The module's SQL file resets these rows
+#     each time it changes, so redo such edits after updating the module.
 #     While this option is on, the XPWeekend.Announce login message is not
 #     sent, so the two do not show together.
 #     Default: 0 (Disabled)
 #
 
 XPWeekend.AnnounceStartEnd = 0
-
-# XPWeekend.StartMessage
-#     Text sent when the bonus starts and at login during the bonus.
-#     Only used when XPWeekend.AnnounceStartEnd = 1.
-#     An empty value disables this message.
-#     Default: "The Double XP Event has started!"
-#
-
-XPWeekend.StartMessage = "The Double XP Event has started!"
-
-# XPWeekend.EndMessage
-#     Text sent when the bonus ends.
-#     Only used when XPWeekend.AnnounceStartEnd = 1.
-#     An empty value disables this message.
-#     Default: "The Double XP Event has ended!"
-#
-
-XPWeekend.EndMessage = "The Double XP Event has ended!"
 
 # XPWeekend.QuestOnly
 #     Restricts the experience bonus to quest rewards only.
