@@ -18,6 +18,7 @@
 #include "WorldState.h"
 #include <algorithm>
 #include <bitset>
+#include <cmath>
 #include <cstdio>
 #include <limits>
 #include <time.h>
@@ -743,13 +744,24 @@ private:
         if (ConfigIndividualXPEnabled())
         {
             rate = PlayerSettingGetRate(player);
+            bool storeRate = false;
+
+            // Invalid stored rates (e.g. from the old cap) count as never set
+            if (!(std::isnormal(rate) && rate > 0.0f))
+            {
+                rate = ConfigxpAmount();
+                storeRate = true;
+            }
 
             // If config changed, cap it to max allowed
             if (rate > ConfigMaxAllowedRate())
             {
                 rate = ConfigMaxAllowedRate();
-                player->UpdatePlayerSetting("mod-double-xp-weekend", SETTING_WEEKEND_XP_RATE, ConfigMaxAllowedRate());
+                storeRate = true;
             }
+
+            if (storeRate)
+                PlayerSettingSetRate(player, rate);
         }
 
         if (IsJoyousJourneysActive() && !player->GetPlayerSetting("mod-double-xp-weekend", SETTING_WEEKEND_XP_JOYOUS_JOURNEYS).IsEnabled())

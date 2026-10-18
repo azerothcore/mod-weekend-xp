@@ -48,9 +48,14 @@ My new module requires:
 ## Installation
 
 ```
-1) Simply place the module under the `modules` directory of your AzerothCore source. 
-2) Import the SQL manually to the right Database (auth, world or characters) or with the `db_assembler.sh` (if `include.sh` provided).
-3) Re-run cmake and launch a clean build of AzerothCore.
+1) Simply place the module under the `modules` directory of your AzerothCore
+   source.
+2) Re-run cmake and launch a clean build of AzerothCore.
+3) Start the worldserver. The module's SQL (`data/sql/db-world/`: module texts
+   and the `.weekendxp` commands) is needed, and the worldserver applies it to
+   the world database automatically at startup, as long as world database
+   updates are enabled (`Updates.EnableDatabases` in `worldserver.conf`, on by
+   default).
 ```
 
 ## Edit module configuration (optional)
